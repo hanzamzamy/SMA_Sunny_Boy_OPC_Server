@@ -15,7 +15,7 @@ typedef struct {
     char* data_type;        // The data type, e.g., "U16", "S32", "FLOAT32"
     float scale;            // A scaling factor to apply to the raw value
     int poll_interval_ms;   // Individual polling interval for this mapping
-} modbus_mapping_t;
+} modbus_reg_mapping_t;
 
 /*
  * @brief Holds the complete configuration for the Modbus to OPC UA gateway.
@@ -46,9 +46,9 @@ typedef struct {
     int watchdog_sec;
 
     // Modbus to OPC UA mappings
-    modbus_mapping_t* mappings;
+    modbus_reg_mapping_t* mappings;
     int num_mappings;
-} config_t;
+} modbus_opcua_config_t;
 
 #endif // CONFIG_H
 

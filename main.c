@@ -40,7 +40,7 @@ static int64_t get_time_ms() {
  * @param out_value Pointer to a float where the result will be stored.
  * @return true if conversion is successful, false if a NaN value is detected.
  */
-bool process_modbus_value(const uint16_t* regs, const modbus_mapping_t* mapping, float* out_value) {
+bool process_modbus_value(const uint16_t* regs, const modbus_reg_mapping_t* mapping, float* out_value) {
     if (strcmp(mapping->data_type, "U16") == 0) {
         if (regs[0] == SMA_NAN_U16) return false;
         *out_value = (float)regs[0] * mapping->scale;
@@ -76,13 +76,13 @@ int main(int argc, char* argv[]) {
     }
 
     // Load configuration from YAML file
-    config_t* config = load_config_from_yaml(argv[1]);
+    modbus_opcua_config_t* config = load_config_from_yaml(argv[1]);
     if (!config) {
         // Error is already logged by the parser
         return EXIT_FAILURE;
     }
 
-    if (logger_init(config->log_file, (LogLevel)config->log_level) != 0) {
+    if (logger_init(config->log_file, config->log_level) != 0) {
         free_config(config);
         return EXIT_FAILURE;
     }
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
 
     while (running) {
         if (!modbus_ctx) {
-            modbus_ctx = modbus_connect(config);
+            modbus_ctx = modbus_tcp_connect(config);
             if (!modbus_ctx) {
                 // If connection fails, wait before retrying
                 sleep(5);
@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
 
         // We iterate the server more frequently to keep it responsive,
         // even if no Modbus polls are happening.
-        UA_Server_iterate(opcua_server, false);
+        UA_Server_run_iterate(opcua_server, false);
         usleep(100 * 1000); // Sleep for 100ms
     }
 

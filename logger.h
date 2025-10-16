@@ -3,6 +3,10 @@
 
 #include <stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Log levels
 typedef enum {
     LOG_LEVEL_ERROR,
@@ -33,5 +37,9 @@ void log_message(log_level_t level, const char* format, ...);
  * @brief Closes the log file.
  */
 void logger_close();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // LOGGER_H

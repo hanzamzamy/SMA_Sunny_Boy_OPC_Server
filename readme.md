@@ -59,7 +59,6 @@ cd ..
 ```sh
 git clone https://github.com/open62541/open62541.git
 cd open62541
-git checkout v1.3.9 # Checkout a known stable release
 mkdir build
 cd build
 cmake -DBUILD_SHARED_LIBS=ON -DUA_ENABLE_ENCRYPTION=OFF ..

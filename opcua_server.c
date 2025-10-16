@@ -31,7 +31,7 @@ usernamePasswordLogin(UA_Server *server, const UA_NodeId *sessionId,
                       }
 
 
-                      UA_Server* opcua_server_init(const config_t* config) {
+                      UA_Server* opcua_server_init(const modbus_opcua_config_t* config) {
                           signal(SIGINT, stop_handler);
                           signal(SIGTERM, stop_handler);
 
@@ -55,7 +55,7 @@ usernamePasswordLogin(UA_Server *server, const UA_NodeId *sessionId,
 
                           // Set the access control plugin to the server config
                           ua_config->accessControl.clear(&ua_config->accessControl);
-                          UA_AccessControl_default(ua_config, false, NULL, &ua_config->securityPolicies[ua_config->securityPoliciesSize - 1].policyUri, 1, logins);
+                          UA_AccessControl_default(ua_config, false, &ua_config->securityPolicies[ua_config->securityPoliciesSize - 1].policyUri, 1, logins);
 
                               } else {
                                   log_message(LOG_LEVEL_WARN, "OPC UA security is disabled. No username/password configured.");
@@ -64,7 +64,7 @@ usernamePasswordLogin(UA_Server *server, const UA_NodeId *sessionId,
                               return server;
                       }
 
-                      void add_opcua_nodes(UA_Server* server, const config_t* config) {
+                      void add_opcua_nodes(UA_Server* server, const modbus_opcua_config_t* config) {
                           for (int i = 0; i < config->num_mappings; i++) {
                               UA_VariableAttributes attr = UA_VariableAttributes_default;
                               attr.displayName = UA_LOCALIZEDTEXT("en-US", config->mappings[i].name);
@@ -88,7 +88,7 @@ usernamePasswordLogin(UA_Server *server, const UA_NodeId *sessionId,
                       }
 
 
-                      UA_StatusCode update_opcua_node_value(UA_Server* server, const modbus_mapping_t* mapping, float value) {
+                      UA_StatusCode update_opcua_node_value(UA_Server* server, const modbus_reg_mapping_t* mapping, float value) {
                           UA_NodeId node_id = UA_NODEID_STRING(1, (char*)mapping->opcua_node_id);
                           UA_Variant ua_value;
                           UA_Variant_init(&ua_value);

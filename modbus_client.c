@@ -2,8 +2,11 @@
 #include "logger.h"
 #include <stdio.h>
 #include <errno.h>
+#include <sys/time.h>
+#include <string.h>
+#include <stdint.h>
 
-modbus_t* modbus_connect(const config_t* config) {
+modbus_t* modbus_tcp_connect(const modbus_opcua_config_t* config) {
     modbus_t* ctx = modbus_new_tcp(config->modbus_ip, config->modbus_port);
     if (ctx == NULL) {
         log_message(LOG_LEVEL_ERROR, "Failed to create modbus context: %s", modbus_strerror(errno));
@@ -28,7 +31,7 @@ modbus_t* modbus_connect(const config_t* config) {
     return ctx;
 }
 
-int read_modbus_data(modbus_t* ctx, const modbus_mapping_t* mapping, uint16_t* dest) {
+int read_modbus_data(modbus_t* ctx, const modbus_reg_mapping_t* mapping, uint16_t* dest) {
     int num_regs = 1; // Default to reading one register
     if (strcmp(mapping->data_type, "S32") == 0 || strcmp(mapping->data_type, "U32") == 0 || strcmp(mapping->data_type, "FLOAT32") == 0) {
         num_regs = 2;

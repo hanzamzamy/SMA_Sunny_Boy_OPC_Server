@@ -16,11 +16,11 @@ static char* get_string(const YAML::Node& node) {
     return strdup(node.as<std::string>().c_str());
 }
 
-extern "C" config_t* load_config_from_yaml(const char* filename) {
+extern "C" modbus_opcua_config_t* load_config_from_yaml(const char* filename) {
     try {
         YAML::Node yaml_config = YAML::LoadFile(filename);
 
-        config_t* config = (config_t*)calloc(1, sizeof(config_t));
+        modbus_opcua_config_t* config = (modbus_opcua_config_t*)calloc(1, sizeof(modbus_opcua_config_t));
         if (!config) {
             log_message(LOG_LEVEL_ERROR, "Failed to allocate memory for config struct.");
             return NULL;
@@ -38,8 +38,8 @@ extern "C" config_t* load_config_from_yaml(const char* filename) {
 
         // Parse Security settings
         const auto& security_node = yaml_config["security"];
-        config->username = get_string(security_node["username"]);
-        config->password = get_string(security_node["password"]);
+        config->opcua_username = get_string(security_node["username"]);
+        config->opcua_password = get_string(security_node["password"]);
 
         // Parse Logging settings
         const auto& logging_node = yaml_config["logging"];
@@ -50,7 +50,7 @@ extern "C" config_t* load_config_from_yaml(const char* filename) {
         const auto& mappings_node = yaml_config["mappings"];
         if (mappings_node && mappings_node.IsSequence()) {
             config->num_mappings = mappings_node.size();
-            config->mappings = (modbus_mapping_t*)calloc(config->num_mappings, sizeof(modbus_mapping_t));
+            config->mappings = (modbus_reg_mapping_t*)calloc(config->num_mappings, sizeof(modbus_reg_mapping_t));
 
             for (size_t i = 0; i < config->num_mappings; ++i) {
                 const auto& mapping_node = mappings_node[i];
@@ -72,14 +72,14 @@ extern "C" config_t* load_config_from_yaml(const char* filename) {
 }
 
 
-extern "C" void free_config(config_t* config) {
+extern "C" void free_config(modbus_opcua_config_t* config) {
     if (!config) {
         return;
     }
 
     free(config->modbus_ip);
-    free(config->username);
-    free(config->password);
+    free(config->opcua_username);
+    free(config->opcua_password);
     free(config->log_file);
 
     if (config->mappings) {
