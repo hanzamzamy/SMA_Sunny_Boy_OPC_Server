@@ -37,11 +37,16 @@ add_executable(modbus_opcua_gateway
     logger.c
 )
 
+set_target_properties(modbus_opcua_gateway PROPERTIES
+    INSTALL_RPATH "/usr/local/lib"
+    BUILD_WITH_INSTALL_RPATH TRUE
+)
+
 # Link the executable against the required libraries
 target_link_libraries(modbus_opcua_gateway
     PRIVATE
     ${LIBMODBUS_LIBRARIES}
     ${OPEN62541_LIBRARIES}
-    yaml-cpp # Link with yaml-cpp
+    yaml-cpp::yaml-cpp # Link with yaml-cpp
 )
 
