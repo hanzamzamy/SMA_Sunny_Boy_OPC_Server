@@ -35,5 +35,19 @@ void add_opcua_nodes(UA_Server* server, const modbus_opcua_config_t* config);
  */
 UA_StatusCode update_opcua_node_value(UA_Server* server, const modbus_reg_mapping_t* mapping, float value);
 
+/**
+ * @brief Checks if a shutdown has been requested for the OPC UA server.
+ *
+ * @return Non-zero if shutdown is requested, zero otherwise.
+ */
+int opcua_shutdown_requested(void);
+
+/**
+ * @brief Handles shutdown signals for the OPC UA server.
+ * 
+ * @return The signal number that triggered the shutdown.
+ */
+int opcua_shutdown_signal(void);
+
 #endif // OPCUA_SERVER_H
 

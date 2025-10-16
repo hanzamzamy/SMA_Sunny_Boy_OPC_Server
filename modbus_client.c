@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <string.h>
 #include <stdint.h>
+#include "opcua_server.h"
 
 modbus_t* modbus_tcp_connect(const modbus_opcua_config_t* config) {
     modbus_t* ctx = modbus_new_tcp(config->modbus_ip, config->modbus_port);
@@ -21,6 +22,11 @@ modbus_t* modbus_tcp_connect(const modbus_opcua_config_t* config) {
     modbus_set_response_timeout(ctx, timeout.tv_sec, timeout.tv_usec);
 
     if (modbus_connect(ctx) == -1) {
+        if (errno == EINTR && opcua_shutdown_requested()) {
+            modbus_free(ctx);
+            return NULL;
+        }
+
         log_message(LOG_LEVEL_ERROR, "Modbus connection failed to %s:%d : %s",
                     config->modbus_ip, config->modbus_port, modbus_strerror(errno));
         modbus_free(ctx);
@@ -42,6 +48,10 @@ int read_modbus_data(modbus_t* ctx, const modbus_reg_mapping_t* mapping, uint16_
     // Using read_input_registers (function code 0x04) as per SMA doc for measurements
     int rc = modbus_read_input_registers(ctx, mapping->modbus_address, num_regs, dest);
     if (rc == -1) {
+        if (errno == EINTR && opcua_shutdown_requested()) {
+            return -2;
+        }
+
         log_message(LOG_LEVEL_ERROR, "Failed to read Modbus register %d: %s", mapping->modbus_address, modbus_strerror(errno));
         return -1;
     }
