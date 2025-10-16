@@ -36,7 +36,6 @@ We will clone and install `libmodbus`, `open62541`, and `yaml-cpp`.
 ```sh
 git clone https://github.com/jbeder/yaml-cpp.git
 cd yaml-cpp
-git checkout yaml-cpp-0.8.0 # Checkout a known stable release
 mkdir build
 cd build
 cmake ..
@@ -58,7 +57,7 @@ cd ..
 
 #### c. open62541 (for OPC UA server)
 ```sh
-git clone [https://github.com/open62541/open62541.git](https://github.com/open62541/open62541.git)
+git clone https://github.com/open62541/open62541.git
 cd open62541
 git checkout v1.3.9 # Checkout a known stable release
 mkdir build
