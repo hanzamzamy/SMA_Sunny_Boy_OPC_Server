@@ -15,6 +15,7 @@ pkg_check_modules(OPEN62541 REQUIRED open62541)
 
 # --- Include Directories ---
 include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${LIBMODBUS_INCLUDE_DIRS}
     ${OPEN62541_INCLUDE_DIRS}
     ${yaml-cpp_INCLUDE_DIRS}
@@ -22,11 +23,11 @@ include_directories(
 
 # --- Add Executable ---
 add_executable(modbus_opcua_gateway
-    main.c
-    config_parser.cpp # The new C++ parser
-    modbus_client.c
-    opcua_server.c
-    logger.c
+    src/main.c
+    src/config_parser.cpp
+    src/modbus_client.c
+    src/opcua_server.c
+    src/logger.c
 )
 
 # --- Link Libraries ---
@@ -43,3 +44,15 @@ set_target_properties(modbus_opcua_gateway PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE
 )
 
+# --- Copy YAML Configuration File ---
+add_custom_command(
+    TARGET modbus_opcua_gateway POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_CURRENT_SOURCE_DIR}/sma_opcua_config.yaml
+            $<TARGET_FILE_DIR:modbus_opcua_gateway>/sma_opcua_config.yaml
+    COMMENT "Copying sma_opcua_config.yaml to the output directory"
+)
+
+# --- Install Executable and Configuration File ---
+install(TARGETS modbus_opcua_gateway RUNTIME DESTINATION bin)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/sma_opcua_config.yaml DESTINATION etc)
