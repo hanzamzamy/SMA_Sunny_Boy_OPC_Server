@@ -8,12 +8,7 @@ extern "C" {
 #endif
 
 // Log levels
-typedef enum {
-    LOG_LEVEL_ERROR,
-    LOG_LEVEL_WARN,
-    LOG_LEVEL_INFO,
-    LOG_LEVEL_DEBUG
-} log_level_t;
+typedef enum { LOG_LEVEL_ERROR, LOG_LEVEL_WARN, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG } log_level_t;
 
 /**
  * @brief Initializes the file logger.
@@ -42,4 +37,4 @@ void logger_close();
 }
 #endif
 
-#endif // LOGGER_H
+#endif  // LOGGER_H

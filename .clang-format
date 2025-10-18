@@ -1,0 +1,28 @@
+Language: Cpp
+BasedOnStyle: Google
+ColumnLimit: 150
+IndentWidth: 2
+UseTab: Never
+BreakBeforeBraces: Attach
+AllowShortIfStatementsOnASingleLine: false
+IndentCaseLabels: false
+ReflowComments: false
+
+BraceWrapping:
+  AfterFunction: true
+  AfterClass: false
+  AfterControlStatement: false
+  # BeforeLambdaBody: true
+  AfterEnum: false
+
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AllowShortLambdasOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceAfterCStyleCast: true
+CompactNamespaces: true
+PenaltyBreakBeforeFirstCallParameter: 1000
+PenaltyBreakComment: 300
+PenaltyReturnTypeOnItsOwnLine: 0

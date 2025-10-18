@@ -1,10 +1,10 @@
 #ifndef OPCUA_SERVER_H
 #define OPCUA_SERVER_H
 
-#include "open62541/server.h"
-#include "open62541/plugin/accesscontrol_default.h"
-#include "open62541/server_config_default.h"
 #include "config.h"
+#include "open62541/plugin/accesscontrol_default.h"
+#include "open62541/server.h"
+#include "open62541/server_config_default.h"
 
 // Expose the running flag
 extern UA_Boolean running;
@@ -49,5 +49,4 @@ int opcua_shutdown_requested(void);
  */
 int opcua_shutdown_signal(void);
 
-#endif // OPCUA_SERVER_H
-
+#endif  // OPCUA_SERVER_H

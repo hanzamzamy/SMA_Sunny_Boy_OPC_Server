@@ -2,6 +2,7 @@
 #define MODBUS_CLIENT_H
 
 #include <modbus/modbus.h>
+
 #include "config.h"
 
 /**
@@ -22,4 +23,4 @@ modbus_t* modbus_tcp_connect(const modbus_opcua_config_t* config);
  */
 int read_modbus_data(modbus_t* ctx, const modbus_reg_mapping_t* mapping, uint16_t* dest);
 
-#endif // MODBUS_CLIENT_H
+#endif  // MODBUS_CLIENT_H
