@@ -37,14 +37,14 @@ mappings:
     poll_interval_ms: 2000
 
   - name: "Daily Yield"
-    modbus_address: 30535
+    modbus_address: 30517
     opcua_node_id: "sma.daily_yield"
     data_type: "U32"
     scale: 1.0
     poll_interval_ms: 15000
 
   - name: "Total Yield"
-    modbus_address: 30529
+    modbus_address: 30513
     opcua_node_id: "sma.total_yield"
     data_type: "U32"
     scale: 1.0
