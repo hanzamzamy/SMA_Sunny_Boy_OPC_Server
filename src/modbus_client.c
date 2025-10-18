@@ -46,14 +46,31 @@ int read_modbus_data(modbus_t* ctx, const modbus_reg_mapping_t* mapping, uint16_
     num_regs = 4;
   }
 
-  // Using read_input_registers (function code 0x04) as per SMA doc for measurements
-  int rc = modbus_read_input_registers(ctx, mapping->modbus_address, num_regs, dest);
+  // Convert manual address to libmodbus 0-based address and determine function
+  int libmodbus_address = mapping->modbus_address;
+  int rc = -1;
+  
+  if (mapping->modbus_address >= 30001 && mapping->modbus_address <= 39999) {
+    // Input registers (read-only) - Function code 0x04
+    libmodbus_address = mapping->modbus_address - 30001;
+    rc = modbus_read_input_registers(ctx, libmodbus_address, num_regs, dest);
+  } else if (mapping->modbus_address >= 40001 && mapping->modbus_address <= 49999) {
+    // Holding registers (read/write) - Function code 0x03
+    libmodbus_address = mapping->modbus_address - 40001;
+    rc = modbus_read_registers(ctx, libmodbus_address, num_regs, dest);
+  } else {
+    log_message(LOG_LEVEL_ERROR, "Unsupported Modbus address %d (must be 30001-39999 or 40001-49999)", 
+                mapping->modbus_address);
+    return -1;
+  }
+
   if (rc == -1) {
     if (errno == EINTR && opcua_shutdown_requested()) {
       return -2;
     }
 
-    log_message(LOG_LEVEL_ERROR, "Failed to read Modbus register %d: %s", mapping->modbus_address, modbus_strerror(errno));
+    log_message(LOG_LEVEL_ERROR, "Failed to read Modbus register %d (libmodbus addr %d): %s", 
+                mapping->modbus_address, libmodbus_address, modbus_strerror(errno));
     return -1;
   }
   return 0;

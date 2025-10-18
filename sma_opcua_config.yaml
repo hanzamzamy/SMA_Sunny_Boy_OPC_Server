@@ -1,8 +1,8 @@
 # Configuration for the Modbus to OPC UA Gateway
 
 modbus:
-  ip: "192.168.1.10"
-  port: 502
+  ip: "127.0.0.1"
+  port: 1502
   slave_id: 3
   timeout_sec: 5
 
