@@ -2,7 +2,7 @@
 
 #include <signal.h>
 #include <string.h>
-
+#include <stdio.h>
 #include "logger.h"
 
 static volatile sig_atomic_t shutdown_requested  = 0;
@@ -76,11 +76,151 @@ void add_opcua_nodes(UA_Server *server, const modbus_opcua_config_t *config) {
 
     // Set the appropriate OPC UA data type based on format
     if (mapping->format) {
-      if (strcmp(mapping->format, "ENUM") == 0) {
-        // For ENUM format, use Int32
+      if (strcmp(mapping->format, "ENUM") == 0 && mapping->enum_values && mapping->num_enum_values > 0) {
+        // Create a proper OPC UA Enumeration DataType
+        char enum_type_name[128];
+        snprintf(enum_type_name, sizeof(enum_type_name), "%s_EnumType", mapping->name);
+        
+        char enum_type_id[256];
+        snprintf(enum_type_id, sizeof(enum_type_id), "EnumType.%s", mapping->opcua_node_id);
+        UA_NodeId enum_type_node_id = UA_NODEID_STRING(1, enum_type_id);
+        
+        // Create the DataType attributes
+        UA_DataTypeAttributes dt_attr = UA_DataTypeAttributes_default;
+        dt_attr.displayName = UA_LOCALIZEDTEXT("en-US", enum_type_name);
+        dt_attr.description = UA_LOCALIZEDTEXT("en-US", "Custom enumeration type");
+        
+        // Add the custom DataType node (inherits from Enumeration)
+        UA_StatusCode result = UA_Server_addDataTypeNode(server, 
+                                                        enum_type_node_id,
+                                                        UA_NODEID_NUMERIC(0, UA_NS0ID_ENUMERATION),
+                                                        UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE),
+                                                        UA_QUALIFIEDNAME(1, enum_type_name),
+                                                        dt_attr, 
+                                                        NULL, 
+                                                        NULL);
+        
+        if (result == UA_STATUSCODE_GOOD) {
+          log_message(LOG_LEVEL_INFO, "Created enum DataType for '%s' with %d values", mapping->name, mapping->num_enum_values);
+          
+          // Create EnumValues property for the DataType (this is crucial for SCADA recognition)
+          char enum_values_id[300];
+          snprintf(enum_values_id, sizeof(enum_values_id), "EnumValues.%s", mapping->opcua_node_id);
+          UA_NodeId enum_values_node_id = UA_NODEID_STRING(1, enum_values_id);
+          
+          // Create EnumValueType array
+          UA_EnumValueType *enum_value_types = (UA_EnumValueType*)UA_Array_new(mapping->num_enum_values, &UA_TYPES[UA_TYPES_ENUMVALUETYPE]);
+          for (int j = 0; j < mapping->num_enum_values; j++) {
+            enum_value_types[j].value = mapping->enum_values[j].value;
+            enum_value_types[j].displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", mapping->enum_values[j].name);
+            enum_value_types[j].description = UA_LOCALIZEDTEXT_ALLOC("en-US", mapping->enum_values[j].name);
+          }
+          
+          UA_VariableAttributes enum_values_attr = UA_VariableAttributes_default;
+          enum_values_attr.displayName = UA_LOCALIZEDTEXT("en-US", "EnumValues");
+          enum_values_attr.description = UA_LOCALIZEDTEXT("en-US", "Enumeration value definitions");
+          enum_values_attr.dataType = UA_TYPES[UA_TYPES_ENUMVALUETYPE].typeId;
+          enum_values_attr.valueRank = 1; // Array
+          enum_values_attr.arrayDimensionsSize = 1;
+          UA_UInt32 arrayDim = mapping->num_enum_values;
+          enum_values_attr.arrayDimensions = &arrayDim;
+          
+          UA_Variant enum_values_variant;
+          UA_Variant_init(&enum_values_variant);
+          UA_Variant_setArray(&enum_values_variant, enum_value_types, mapping->num_enum_values, &UA_TYPES[UA_TYPES_ENUMVALUETYPE]);
+          enum_values_attr.value = enum_values_variant;
+          
+          // Add EnumValues as a property of the DataType
+          UA_StatusCode enum_prop_result = UA_Server_addVariableNode(server,
+                                   enum_values_node_id,
+                                   enum_type_node_id,
+                                   UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                                   UA_QUALIFIEDNAME(0, "EnumValues"),
+                                   UA_NODEID_NUMERIC(0, UA_NS0ID_PROPERTYTYPE),
+                                   enum_values_attr,
+                                   NULL, NULL);
+          
+          if (enum_prop_result == UA_STATUSCODE_GOOD) {
+            log_message(LOG_LEVEL_INFO, "Added EnumValues property to DataType '%s'", enum_type_name);
+            
+            // Now create the variable using Int32 type (this is the standard approach)
+            // The enum information is stored in the DataType definition
+            attr.dataType = UA_TYPES[UA_TYPES_INT32].typeId;
+            
+            // Set initial value to the first enum value
+            UA_Int32 initial_value = mapping->enum_values[0].value;
+            UA_Variant_setScalar(&attr.value, &initial_value, &UA_TYPES[UA_TYPES_INT32]);
+            
+            // Add a custom attribute to reference the enum DataType
+            attr.description = UA_LOCALIZEDTEXT_ALLOC("en-US", enum_type_name);
+            
+            // Create the variable node
+            UA_StatusCode var_result = UA_Server_addVariableNode(server, node_id, 
+                                      UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), 
+                                      UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                                      UA_QUALIFIEDNAME(1, mapping->name), 
+                                      UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), 
+                                      attr, NULL, NULL);
+            
+            if (var_result == UA_STATUSCODE_GOOD) {
+              log_message(LOG_LEVEL_INFO, "Created enum variable '%s' with node ID '%s'", mapping->name, mapping->opcua_node_id);
+              
+              // Add a reference from the variable to the enum DataType for better SCADA recognition
+              char ref_prop_id[300];
+              snprintf(ref_prop_id, sizeof(ref_prop_id), "EnumDataType.%s", mapping->opcua_node_id);
+              UA_NodeId ref_prop_node_id = UA_NODEID_STRING(1, ref_prop_id);
+              
+              UA_VariableAttributes ref_attr = UA_VariableAttributes_default;
+              ref_attr.displayName = UA_LOCALIZEDTEXT("en-US", "EnumDataType");
+              ref_attr.description = UA_LOCALIZEDTEXT("en-US", "Reference to enumeration DataType");
+              ref_attr.dataType = UA_TYPES[UA_TYPES_NODEID].typeId;
+              
+              UA_Variant ref_variant;
+              UA_Variant_init(&ref_variant);
+              UA_Variant_setScalar(&ref_variant, &enum_type_node_id, &UA_TYPES[UA_TYPES_NODEID]);
+              ref_attr.value = ref_variant;
+              
+              UA_Server_addVariableNode(server,
+                                       ref_prop_node_id,
+                                       node_id,
+                                       UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                                       UA_QUALIFIEDNAME(0, "EnumDataType"),
+                                       UA_NODEID_NUMERIC(0, UA_NS0ID_PROPERTYTYPE),
+                                       ref_attr,
+                                       NULL, NULL);
+              
+            } else {
+              log_message(LOG_LEVEL_ERROR, "Failed to create enum variable '%s': 0x%08x", mapping->name, var_result);
+            }
+          } else {
+            log_message(LOG_LEVEL_ERROR, "Failed to add EnumValues property: 0x%08x", enum_prop_result);
+          }
+          
+        } else {
+          log_message(LOG_LEVEL_WARN, "Failed to create enum DataType for '%s', falling back to Int32", mapping->name);
+          // Fallback to Int32
+          attr.dataType = UA_TYPES[UA_TYPES_INT32].typeId;
+          UA_Int32 value = 0;
+          UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_INT32]);
+          
+          UA_Server_addVariableNode(server, node_id, 
+                                  UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), 
+                                  UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                                  UA_QUALIFIEDNAME(1, mapping->name), 
+                                  UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), 
+                                  attr, NULL, NULL);
+        }
+        
+      } else if (strcmp(mapping->format, "ENUM") == 0) {
+        log_message(LOG_LEVEL_WARN, "ENUM format specified for '%s' but no enum_values provided, using Int32", mapping->name);
+        // Fallback to Int32 if no enum values
         attr.dataType = UA_TYPES[UA_TYPES_INT32].typeId;
         UA_Int32 value = 0;
         UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_INT32]);
+        
+        // Create variable node
+        UA_Server_addVariableNode(server, node_id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                                  UA_QUALIFIEDNAME(1, mapping->name), UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
         
       } else if (strcmp(mapping->format, "FW") == 0) {
         // Firmware version as string
@@ -88,11 +228,19 @@ void add_opcua_nodes(UA_Server *server, const modbus_opcua_config_t *config) {
         UA_String value = UA_STRING_NULL;
         UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_STRING]);
         
+        // Create variable node
+        UA_Server_addVariableNode(server, node_id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                                  UA_QUALIFIEDNAME(1, mapping->name), UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
+        
       } else if (strcmp(mapping->format, "DT") == 0 || strcmp(mapping->format, "TM") == 0) {
         // DateTime
         attr.dataType = UA_TYPES[UA_TYPES_DATETIME].typeId;
         UA_DateTime value = 0;
         UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_DATETIME]);
+        
+        // Create variable node
+        UA_Server_addVariableNode(server, node_id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                                  UA_QUALIFIEDNAME(1, mapping->name), UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
         
       } else if (strcmp(mapping->format, "Duration") == 0) {
         // Duration as Float (milliseconds)
@@ -100,21 +248,30 @@ void add_opcua_nodes(UA_Server *server, const modbus_opcua_config_t *config) {
         UA_Float value = 0.0f;
         UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_FLOAT]);
         
+        // Create variable node
+        UA_Server_addVariableNode(server, node_id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                                  UA_QUALIFIEDNAME(1, mapping->name), UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
+        
       } else {
         // FIXn, TEMP, or other numeric formats - use Float
         attr.dataType = UA_TYPES[UA_TYPES_FLOAT].typeId;
         UA_Float value = 0.0f;
         UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+        
+        // Create variable node
+        UA_Server_addVariableNode(server, node_id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                                  UA_QUALIFIEDNAME(1, mapping->name), UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
       }
     } else {
       // No format specified, default to Float
       attr.dataType = UA_TYPES[UA_TYPES_FLOAT].typeId;
       UA_Float value = 0.0f;
       UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+      
+      // Create variable node
+      UA_Server_addVariableNode(server, node_id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                                UA_QUALIFIEDNAME(1, mapping->name), UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
     }
-
-    UA_Server_addVariableNode(server, node_id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-                              UA_QUALIFIEDNAME(1, mapping->name), UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
   }
 }
 

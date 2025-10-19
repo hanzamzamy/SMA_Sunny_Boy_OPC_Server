@@ -248,7 +248,22 @@ int main(int argc, char *argv[]) {
             log_message(LOG_LEVEL_DEBUG, "Read '%s': %f (Poll Rate: %dms)", config->mappings[i].name, val, config->mappings[i].poll_interval_ms);
           } else if (ua_value.type == &UA_TYPES[UA_TYPES_INT32]) {
             int32_t val = *(UA_Int32*)ua_value.data;
-            log_message(LOG_LEVEL_DEBUG, "Read '%s': %d (Poll Rate: %dms)", config->mappings[i].name, val, config->mappings[i].poll_interval_ms);
+            
+            // For ENUM format, try to find the corresponding string
+            if (config->mappings[i].format && strcmp(config->mappings[i].format, "ENUM") == 0) {
+              const char* enum_string = "Unknown";
+              for (int j = 0; j < config->mappings[i].num_enum_values; j++) {
+                if (config->mappings[i].enum_values[j].value == val) {
+                  enum_string = config->mappings[i].enum_values[j].name;
+                  break;
+                }
+              }
+              log_message(LOG_LEVEL_DEBUG, "Read '%s': %d (%s) (Poll Rate: %dms)", 
+                         config->mappings[i].name, val, enum_string, config->mappings[i].poll_interval_ms);
+            } else {
+              log_message(LOG_LEVEL_DEBUG, "Read '%s': %d (Poll Rate: %dms)", 
+                         config->mappings[i].name, val, config->mappings[i].poll_interval_ms);
+            }
           } else if (ua_value.type == &UA_TYPES[UA_TYPES_STRING]) {
             UA_String *str = (UA_String*)ua_value.data;
             log_message(LOG_LEVEL_DEBUG, "Read '%s': %.*s (Poll Rate: %dms)", config->mappings[i].name, (int)str->length, str->data, config->mappings[i].poll_interval_ms);
