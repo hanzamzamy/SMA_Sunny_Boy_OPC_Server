@@ -36,6 +36,16 @@ void add_opcua_nodes(UA_Server* server, const modbus_opcua_config_t* config);
 UA_StatusCode update_opcua_node_value(UA_Server* server, const modbus_reg_mapping_t* mapping, float value);
 
 /**
+ * @brief Updates a specific node on the OPC UA server with a new typed value.
+ *
+ * @param server The OPC UA server instance.
+ * @param mapping The mapping corresponding to the node to be updated.
+ * @param value The new typed value to write to the node.
+ * @return UA_STATUSCODE_GOOD on success.
+ */
+UA_StatusCode update_opcua_node_value_typed(UA_Server* server, const modbus_reg_mapping_t* mapping, UA_Variant* value);
+
+/**
  * @brief Checks if a shutdown has been requested for the OPC UA server.
  *
  * @return Non-zero if shutdown is requested, zero otherwise.

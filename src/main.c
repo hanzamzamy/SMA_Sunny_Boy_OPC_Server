@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/time.h>  // For gettimeofday
 #include <unistd.h>
+#include <ctype.h>     // For isdigit
 
 #include "config.h"
 #include "config_parser.h"  // Use the new parser header
@@ -31,43 +32,127 @@ static int64_t get_time_ms() {
 }
 
 /**
- * @brief Processes raw Modbus register data, checking for NaN, handling
- * endianness (Modbus is Big Endian), and applying scaling.
- *
+ * @brief Processes raw Modbus register data according to SMA format specification.
  * @param regs Pointer to the raw register data (uint16_t array).
  * @param mapping The configuration mapping for this data point.
- * @param out_value Pointer to a float where the result will be stored.
+ * @param out_variant Pointer to UA_Variant where the result will be stored.
  * @return true if conversion is successful, false if a NaN value is detected.
  */
-bool process_modbus_value(const uint16_t *regs, const modbus_reg_mapping_t *mapping, float *out_value) {
+bool process_modbus_value_formatted(const uint16_t *regs, const modbus_reg_mapping_t *mapping, UA_Variant *out_variant) {
+  UA_Variant_init(out_variant);
+  
+  // First, combine registers according to data type and check for NaN
+  uint64_t raw_value = 0;
+  bool is_nan = false;
+  
   if (strcmp(mapping->data_type, "U16") == 0) {
-    if (regs[0] == SMA_NAN_U16)
-      return false;
-    *out_value = (float) regs[0] * mapping->scale;
+    raw_value = regs[0];
+    is_nan = (regs[0] == SMA_NAN_U16);
   } else if (strcmp(mapping->data_type, "S16") == 0) {
-    if (regs[0] == SMA_NAN_S16)
-      return false;
-    *out_value = (float) ((int16_t) regs[0]) * mapping->scale;
+    raw_value = regs[0];
+    is_nan = (regs[0] == SMA_NAN_S16);
   } else if (strcmp(mapping->data_type, "U32") == 0) {
-    // Modbus (Big Endian): regs[0] is high word, regs[1] is low word.
-    uint32_t val = ((uint32_t) regs[0] << 16) | regs[1];
-    if (val == SMA_NAN_U32)
-      return false;
-    *out_value = (float) val * mapping->scale;
+    raw_value = ((uint32_t) regs[0] << 16) | regs[1];
+    is_nan = (raw_value == SMA_NAN_U32);
   } else if (strcmp(mapping->data_type, "S32") == 0) {
-    uint32_t raw_val = ((uint32_t) regs[0] << 16) | regs[1];
-    if (raw_val == SMA_NAN_S32)
-      return false;
-    *out_value = (float) ((int32_t) raw_val) * mapping->scale;
+    raw_value = ((uint32_t) regs[0] << 16) | regs[1];
+    is_nan = (raw_value == SMA_NAN_S32);
   } else if (strcmp(mapping->data_type, "U64") == 0) {
-    uint64_t val = ((uint64_t) regs[0] << 48) | ((uint64_t) regs[1] << 32) | ((uint64_t) regs[2] << 16) | regs[3];
-    if (val == SMA_NAN_U64)
-      return false;
-    *out_value = (float) val * mapping->scale;
+    raw_value = ((uint64_t) regs[0] << 48) | ((uint64_t) regs[1] << 32) | ((uint64_t) regs[2] << 16) | regs[3];
+    is_nan = (raw_value == SMA_NAN_U64);
   } else {
     log_message(LOG_LEVEL_WARN, "Unsupported data type for '%s': %s", mapping->name, mapping->data_type);
     return false;
   }
+  
+  if (is_nan) {
+    return false;
+  }
+  
+  // Process according to format
+  if (!mapping->format) {
+    log_message(LOG_LEVEL_WARN, "No format specified for '%s', cannot process value.", mapping->name);
+    return false;
+  }
+  
+  // Format-specific processing
+  if (strncmp(mapping->format, "FIX", 3) == 0) {
+    // FIXn format
+    int decimal_places = 0;
+    if (strlen(mapping->format) > 3) {
+      decimal_places = atoi(mapping->format + 3);
+    }
+    float scale = 1.0f;
+    for (int i = 0; i < decimal_places; i++) {
+      scale *= 0.1f;
+    }
+    
+    float *float_val = UA_Float_new();
+    if (strcmp(mapping->data_type, "S16") == 0 || strcmp(mapping->data_type, "S32") == 0) {
+      *float_val = (float)((int64_t)raw_value) * scale;
+    } else {
+      *float_val = (float)raw_value * scale;
+    }
+    UA_Variant_setScalar(out_variant, float_val, &UA_TYPES[UA_TYPES_FLOAT]);
+    
+  } else if (strcmp(mapping->format, "ENUM") == 0) {
+    // ENUM format
+    UA_Int32 *int_val = UA_Int32_new();
+    *int_val = (UA_Int32)raw_value;
+    UA_Variant_setScalar(out_variant, int_val, &UA_TYPES[UA_TYPES_INT32]);
+    
+  } else if (strcmp(mapping->format, "FW") == 0) {
+    // Firmware version format
+    uint32_t fw_val = (uint32_t)raw_value;
+    uint8_t major = (fw_val >> 24) & 0xFF;
+    uint8_t minor = (fw_val >> 16) & 0xFF;
+    uint8_t build = (fw_val >> 8) & 0xFF;
+    uint8_t release = fw_val & 0xFF;
+    
+    char release_char = 'R';
+    switch (release) {
+      case 3: release_char = 'B'; break;
+      case 4: release_char = 'R'; break;
+      default: release_char = '?'; break;
+    }
+    
+    char fw_string[32];
+    snprintf(fw_string, sizeof(fw_string), "%x.%x.%d.%c", major, minor, build, release_char);
+    
+    UA_String *string_val = UA_String_new();
+    *string_val = UA_STRING_ALLOC(fw_string);
+    UA_Variant_setScalar(out_variant, string_val, &UA_TYPES[UA_TYPES_STRING]);
+    
+  } else if (strcmp(mapping->format, "DT") == 0 || strcmp(mapping->format, "TM") == 0) {
+    // DateTime format
+    uint32_t unix_timestamp = (uint32_t)raw_value;
+    UA_DateTime *datetime_val = UA_DateTime_new();
+    *datetime_val = (unix_timestamp + 11644473600ULL) * 10000000ULL;
+    UA_Variant_setScalar(out_variant, datetime_val, &UA_TYPES[UA_TYPES_DATETIME]);
+    
+  } else if (strcmp(mapping->format, "Duration") == 0) {
+    // Duration format (seconds to milliseconds)
+    float *float_val = UA_Float_new();
+    *float_val = (float)raw_value * 1000.0f;
+    UA_Variant_setScalar(out_variant, float_val, &UA_TYPES[UA_TYPES_FLOAT]);
+    
+  } else if (strcmp(mapping->format, "TEMP") == 0) {
+    // Temperature format (like FIX1)
+    float *float_val = UA_Float_new();
+    if (strcmp(mapping->data_type, "S32") == 0) {
+      *float_val = (float)((int32_t)raw_value) * 0.1f;
+    } else {
+      *float_val = (float)raw_value * 0.1f;
+    }
+    UA_Variant_setScalar(out_variant, float_val, &UA_TYPES[UA_TYPES_FLOAT]);
+    
+  } else {
+    log_message(LOG_LEVEL_WARN, "Unknown format '%s' for '%s', using raw value", mapping->format, mapping->name);
+    float *float_val = UA_Float_new();
+    *float_val = (float)raw_value;
+    UA_Variant_setScalar(out_variant, float_val, &UA_TYPES[UA_TYPES_FLOAT]);
+  }
+  
   return true;
 }
 
@@ -133,7 +218,6 @@ int main(int argc, char *argv[]) {
     if (!modbus_ctx) {
       modbus_ctx = modbus_tcp_connect(config);
       if (!modbus_ctx) {
-        // If connection fails, wait before retrying
         if (opcua_shutdown_requested())
           break;
         sleep(5);
@@ -144,46 +228,53 @@ int main(int argc, char *argv[]) {
     int64_t current_time_ms = get_time_ms();
 
     for (int i = 0; i < config->num_mappings; i++) {
-      /* early exit if shutdown requested while inside poll loop */
       if (opcua_shutdown_requested())
         break;
 
-      // Check if it's time to poll this specific mapping
       if (current_time_ms < next_poll_times[i]) {
-        continue;  // Not yet time
+        continue;
       }
 
-      // It's time to poll, set the next poll time
       next_poll_times[i] = current_time_ms + config->mappings[i].poll_interval_ms;
 
-      uint16_t regs[4];  // Buffer for up to 4 registers (64-bit)
+      uint16_t regs[4];
       int      read_rc = read_modbus_data(modbus_ctx, &config->mappings[i], regs);
       if (read_rc == 0) {
-        float value = NAN;
-        if (process_modbus_value(regs, &config->mappings[i], &value)) {
-          log_message(LOG_LEVEL_DEBUG, "Read '%s': %f (Poll Rate: %dms)", config->mappings[i].name, value, config->mappings[i].poll_interval_ms);
-          update_opcua_node_value(opcua_server, &config->mappings[i], value);
+        UA_Variant ua_value;
+        if (process_modbus_value_formatted(regs, &config->mappings[i], &ua_value)) {
+          // Log the value based on its type
+          if (ua_value.type == &UA_TYPES[UA_TYPES_FLOAT]) {
+            float val = *(UA_Float*)ua_value.data;
+            log_message(LOG_LEVEL_DEBUG, "Read '%s': %f (Poll Rate: %dms)", config->mappings[i].name, val, config->mappings[i].poll_interval_ms);
+          } else if (ua_value.type == &UA_TYPES[UA_TYPES_INT32]) {
+            int32_t val = *(UA_Int32*)ua_value.data;
+            log_message(LOG_LEVEL_DEBUG, "Read '%s': %d (Poll Rate: %dms)", config->mappings[i].name, val, config->mappings[i].poll_interval_ms);
+          } else if (ua_value.type == &UA_TYPES[UA_TYPES_STRING]) {
+            UA_String *str = (UA_String*)ua_value.data;
+            log_message(LOG_LEVEL_DEBUG, "Read '%s': %.*s (Poll Rate: %dms)", config->mappings[i].name, (int)str->length, str->data, config->mappings[i].poll_interval_ms);
+          } else {
+            log_message(LOG_LEVEL_DEBUG, "Read '%s': (complex type) (Poll Rate: %dms)", config->mappings[i].name, config->mappings[i].poll_interval_ms);
+          }
+          
+          update_opcua_node_value_typed(opcua_server, &config->mappings[i], &ua_value);
+          UA_Variant_clear(&ua_value);
         } else {
           log_message(LOG_LEVEL_WARN, "Received NaN for '%s' (Modbus Addr: %d). Skipping update.", config->mappings[i].name,
                       config->mappings[i].modbus_address);
         }
       } else if (read_rc == -2) {
-        /* Interrupted by signal and shutdown requested — stop polling immediately. */
         break;
       } else {
-        // Handle read error - try to reconnect
         modbus_close(modbus_ctx);
         modbus_free(modbus_ctx);
         modbus_ctx = NULL;
         log_message(LOG_LEVEL_ERROR, "Modbus read failed, will attempt to reconnect.");
-        break;  // Exit the for loop to attempt reconnection
+        break;
       }
     }
 
-    // We iterate the server more frequently to keep it responsive,
-    // even if no Modbus polls are happening.
     UA_Server_run_iterate(opcua_server, false);
-    usleep(100 * 1000);  // Sleep for 100ms
+    usleep(100 * 1000);
   }
 
   /* Log the fact that shutdown was requested (safe context) */

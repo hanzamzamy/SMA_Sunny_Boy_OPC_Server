@@ -60,8 +60,22 @@ extern "C" modbus_opcua_config_t* load_config_from_yaml(const char* filename) {
         config->mappings[i].modbus_address   = mapping_node["modbus_address"].as<int>();
         config->mappings[i].opcua_node_id    = get_string(mapping_node["opcua_node_id"]);
         config->mappings[i].data_type        = get_string(mapping_node["data_type"]);
+        config->mappings[i].format           = get_string(mapping_node["format"]);
         config->mappings[i].scale            = mapping_node["scale"] ? mapping_node["scale"].as<float>() : 1.0f;
         config->mappings[i].poll_interval_ms = mapping_node["poll_interval_ms"].as<int>();
+
+        // Parse enum_values if present
+        if (mapping_node["enum_values"]) {
+          const auto& enum_node = mapping_node["enum_values"];
+          config->mappings[i].num_enum_values = enum_node.size();
+          config->mappings[i].enum_values = (enum_value_mapping_t*) calloc(config->mappings[i].num_enum_values, sizeof(enum_value_mapping_t));
+          
+          int j = 0;
+          for (auto it = enum_node.begin(); it != enum_node.end(); ++it, ++j) {
+            config->mappings[i].enum_values[j].value = it->first.as<int>();
+            config->mappings[i].enum_values[j].name = strdup(it->second.as<std::string>().c_str());
+          }
+        }
       }
     }
 
@@ -88,6 +102,14 @@ extern "C" void free_config(modbus_opcua_config_t* config) {
       free(config->mappings[i].name);
       free(config->mappings[i].opcua_node_id);
       free(config->mappings[i].data_type);
+      free(config->mappings[i].format);
+      
+      if (config->mappings[i].enum_values) {
+        for (int j = 0; j < config->mappings[i].num_enum_values; j++) {
+          free(config->mappings[i].enum_values[j].name);
+        }
+        free(config->mappings[i].enum_values);
+      }
     }
     free(config->mappings);
   }

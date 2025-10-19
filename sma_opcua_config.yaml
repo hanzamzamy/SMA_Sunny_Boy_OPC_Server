@@ -11,48 +11,73 @@ opcua:
 
 security:
   username: "admin"
-  # username: "" # uncomment to disable auth
   password: "your_secure_password"
-  # password: "" # uncomment to disable password
 
 logging:
   file: "/var/log/modbus_gateway.log"
-  # Log levels: 0=DEBUG, 1=INFO, 2=WARN, 3=ERROR
-  level: 1
+  # Log levels: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG
+  level: 2
 
 # Mappings from Modbus registers to OPC UA nodes
+# The 'format' key specifies how to interpret the data.
+# - FIXn: Decimal number with 'n' places. (e.g., FIX0, FIX2).
+# - ENUM: An enumeration. 'enum_values' map must be provided.
+# - FW: Firmware version string.
+# - DT / TM: A specific point in time (DateTime).
+# - Duration: A time interval.
+# - TEMP: Temperature (handled as a float).
 mappings:
   - name: "AC Active Power (Total)"
     modbus_address: 30775
     opcua_node_id: "sma.ac_power_total"
     data_type: "S32"
-    scale: 1.0
+    format: "FIX0"
     poll_interval_ms: 2000
 
   - name: "Grid Frequency"
     modbus_address: 30803
     opcua_node_id: "sma.grid_frequency"
     data_type: "U32"
-    scale: 0.01
+    format: "FIX2"
     poll_interval_ms: 2000
-
-  - name: "Daily Yield"
-    modbus_address: 30517
-    opcua_node_id: "sma.daily_yield"
-    data_type: "U32"
-    scale: 1.0
-    poll_interval_ms: 15000
-
-  - name: "Total Yield"
-    modbus_address: 30513
-    opcua_node_id: "sma.total_yield"
-    data_type: "U32"
-    scale: 1.0
-    poll_interval_ms: 60000
 
   - name: "Device Status"
     modbus_address: 30201
     opcua_node_id: "sma.device_status"
-    data_type: "U32" # ENUM type, raw value will be exposed
-    scale: 1.0
+    data_type: "U32"
+    format: "ENUM"
     poll_interval_ms: 5000
+    enum_values:
+      35: "Error"
+      303: "Off"
+      307: "OK"
+      455: "Warning"
+      
+  - name: "Device Local Time"
+    modbus_address: 30229
+    opcua_node_id: "sma.device_time"
+    data_type: "U32"
+    format: "DT"
+    poll_interval_ms: 60000
+
+  - name: "Feed-in Time"
+    modbus_address: 30525
+    opcua_node_id: "sma.feed_in_time"
+    data_type: "U64"
+    format: "Duration"
+    poll_interval_ms: 60000
+
+  - name: "Total Yield"
+    modbus_address: 30513
+    opcua_node_id: "sma.total_yield"
+    data_type: "U64"
+    format: "FIX0"
+    poll_interval_ms: 60000
+
+  - name: "Software Package Version"
+    modbus_address: 30059
+    opcua_node_id: "sma.firmware_version"
+    data_type: "U32"
+    format: "FW"
+    poll_interval_ms: 3600000
+

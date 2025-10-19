@@ -67,21 +67,61 @@ UA_Server *opcua_server_init(const modbus_opcua_config_t *config) {
 
 void add_opcua_nodes(UA_Server *server, const modbus_opcua_config_t *config) {
   for (int i = 0; i < config->num_mappings; i++) {
-    UA_VariableAttributes attr = UA_VariableAttributes_default;
-    attr.displayName           = UA_LOCALIZEDTEXT("en-US", config->mappings[i].name);
+    modbus_reg_mapping_t* mapping = &config->mappings[i];
+    UA_VariableAttributes attr    = UA_VariableAttributes_default;
+    attr.displayName              = UA_LOCALIZEDTEXT("en-US", mapping->name);
+    attr.accessLevel              = UA_ACCESSLEVELMASK_READ;
 
-    // Set all nodes to be read-only
-    attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+    UA_NodeId node_id = UA_NODEID_STRING(1, mapping->opcua_node_id);
 
-    UA_NodeId node_id = UA_NODEID_STRING(1, config->mappings[i].opcua_node_id);
-
-    // We will store all values as floats for simplicity in the OPC UA server
-    UA_Float value = 0.0f;
-    UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+    // Set the appropriate OPC UA data type based on format
+    if (mapping->format) {
+      if (strcmp(mapping->format, "ENUM") == 0) {
+        // For ENUM format, use Int32
+        attr.dataType = UA_TYPES[UA_TYPES_INT32].typeId;
+        UA_Int32 value = 0;
+        UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_INT32]);
+        
+      } else if (strcmp(mapping->format, "FW") == 0) {
+        // Firmware version as string
+        attr.dataType = UA_TYPES[UA_TYPES_STRING].typeId;
+        UA_String value = UA_STRING_NULL;
+        UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_STRING]);
+        
+      } else if (strcmp(mapping->format, "DT") == 0 || strcmp(mapping->format, "TM") == 0) {
+        // DateTime
+        attr.dataType = UA_TYPES[UA_TYPES_DATETIME].typeId;
+        UA_DateTime value = 0;
+        UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_DATETIME]);
+        
+      } else if (strcmp(mapping->format, "Duration") == 0) {
+        // Duration as Float (milliseconds)
+        attr.dataType = UA_TYPES[UA_TYPES_FLOAT].typeId;
+        UA_Float value = 0.0f;
+        UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+        
+      } else {
+        // FIXn, TEMP, or other numeric formats - use Float
+        attr.dataType = UA_TYPES[UA_TYPES_FLOAT].typeId;
+        UA_Float value = 0.0f;
+        UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+      }
+    } else {
+      // No format specified, default to Float
+      attr.dataType = UA_TYPES[UA_TYPES_FLOAT].typeId;
+      UA_Float value = 0.0f;
+      UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+    }
 
     UA_Server_addVariableNode(server, node_id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-                              UA_QUALIFIEDNAME(1, config->mappings[i].name), UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
+                              UA_QUALIFIEDNAME(1, mapping->name), UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
   }
+}
+
+// New function to update different data types
+UA_StatusCode update_opcua_node_value_typed(UA_Server *server, const modbus_reg_mapping_t *mapping, UA_Variant *value) {
+  UA_NodeId node_id = UA_NODEID_STRING(1, (char *) mapping->opcua_node_id);
+  return UA_Server_writeValue(server, node_id, *value);
 }
 
 UA_StatusCode update_opcua_node_value(UA_Server *server, const modbus_reg_mapping_t *mapping, float value) {

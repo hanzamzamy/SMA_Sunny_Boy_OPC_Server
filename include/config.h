@@ -5,6 +5,14 @@
 #include <stdint.h>
 
 /*
+ * @brief Represents an enumeration value mapping for ENUM format.
+ */
+typedef struct {
+  int   value;  // The numeric value
+  char* name;   // The text label
+} enum_value_mapping_t;
+
+/*
  * @brief Defines the configuration for a single Modbus register mapping.
  * This struct maps a Modbus register address to an OPC UA node.
  */
@@ -13,8 +21,13 @@ typedef struct {
   int   modbus_address;    // The Modbus register address to read from
   char* opcua_node_id;     // The identifier for the corresponding OPC UA node
   char* data_type;         // The data type, e.g., "U16", "S32", "FLOAT32"
-  float scale;             // A scaling factor to apply to the raw value
+  char* format;            // Format: "FIXn", "ENUM", "FW", "DT", "TM", "Duration", "TEMP"
+  float scale;             // A scaling factor to apply to the raw value (deprecated, use format)
   int   poll_interval_ms;  // Individual polling interval for this mapping
+  
+  // For ENUM format
+  enum_value_mapping_t* enum_values;     // Array of enum mappings
+  int                   num_enum_values; // Number of enum mappings
 } modbus_reg_mapping_t;
 
 /*
