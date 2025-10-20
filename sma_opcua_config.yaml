@@ -3,6 +3,8 @@
 modbus:
   ip: "127.0.0.1"
   port: 1502
+  # ip: "10.3.145.15"
+  # port: 502
   slave_id: 3
   timeout_sec: 5
 
@@ -45,18 +47,6 @@ mappings:
       8064: "Sensor technology general"
       8065: "Energy meter"
       8128: "Communication products"
-
-  - name: "Device Type"
-    modbus_address: 30053
-    opcua_node_id: "sma.identification.device_type"
-    data_type: "U32"
-    format: "ENUM" # Note: Values are device-specific
-    poll_interval_ms: 300000
-    enum_values:
-      9098: "STP 5000TL-20"
-      9099: "STP 6000TL-20"
-      9100: "STP 7000TL-20"
-      9326: "Sunny Boy Storage 2.5"
 
   - name: "Serial Number"
     modbus_address: 30057
