@@ -70,7 +70,7 @@ void add_opcua_nodes(UA_Server *server, const modbus_opcua_config_t *config) {
     modbus_reg_mapping_t* mapping = &config->mappings[i];
     UA_VariableAttributes attr    = UA_VariableAttributes_default;
     attr.displayName              = UA_LOCALIZEDTEXT("en-US", mapping->name);
-    attr.accessLevel              = UA_ACCESSLEVELMASK_READ;
+    attr.accessLevel              = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
 
     UA_NodeId node_id = UA_NODEID_STRING(1, mapping->opcua_node_id);
 
@@ -275,10 +275,50 @@ void add_opcua_nodes(UA_Server *server, const modbus_opcua_config_t *config) {
   }
 }
 
-// New function to update different data types
 UA_StatusCode update_opcua_node_value_typed(UA_Server *server, const modbus_reg_mapping_t *mapping, UA_Variant *value) {
   UA_NodeId node_id = UA_NODEID_STRING(1, (char *) mapping->opcua_node_id);
-  return UA_Server_writeValue(server, node_id, *value);
+
+  /* write and log result */
+  UA_DataValue dv;
+  UA_DataValue_init(&dv);
+  dv.hasValue = true;
+  dv.value = *value;
+  dv.hasSourceTimestamp = true;
+  dv.sourceTimestamp = UA_DateTime_now();
+  dv.hasServerTimestamp = true;
+  dv.serverTimestamp = dv.sourceTimestamp;
+  dv.status = UA_STATUSCODE_GOOD;
+
+  // Write with timestamps
+  UA_StatusCode rc = UA_Server_writeDataValue(server, node_id, dv);
+  if (rc != UA_STATUSCODE_GOOD) {
+    log_message(LOG_LEVEL_ERROR, "UA_Server_writeDataValue failed for '%s' (NodeId=%s): 0x%08x", mapping->name, mapping->opcua_node_id, rc);
+    return rc;
+  }
+
+  /* read back to verify */
+  UA_Variant read_back;
+  UA_Variant_init(&read_back);
+  rc = UA_Server_readValue(server, node_id, &read_back);
+  if (rc != UA_STATUSCODE_GOOD) {
+    log_message(LOG_LEVEL_WARN, "UA_Server_readValue failed for '%s' after write: 0x%08x", mapping->name, rc);
+  } else {
+    if (read_back.type == &UA_TYPES[UA_TYPES_FLOAT]) {
+      float v = *(UA_Float*)read_back.data;
+      log_message(LOG_LEVEL_DEBUG, "Wrote/Read back '%s' = %f", mapping->name, v);
+    } else if (read_back.type == &UA_TYPES[UA_TYPES_INT32]) {
+      int32_t v = *(UA_Int32*)read_back.data;
+      log_message(LOG_LEVEL_DEBUG, "Wrote/Read back '%s' = %d", mapping->name, v);
+    } else if (read_back.type == &UA_TYPES[UA_TYPES_STRING]) {
+      UA_String *s = (UA_String*)read_back.data;
+      log_message(LOG_LEVEL_DEBUG, "Wrote/Read back '%s' = %.*s", mapping->name, (int)s->length, s->data);
+    } else {
+      log_message(LOG_LEVEL_DEBUG, "Wrote/Read back '%s' (type %d)", mapping->name, (int)read_back.type->typeId.identifier.numeric);
+    }
+    UA_Variant_clear(&read_back);
+  }
+
+  return UA_STATUSCODE_GOOD;
 }
 
 UA_StatusCode update_opcua_node_value(UA_Server *server, const modbus_reg_mapping_t *mapping, float value) {
