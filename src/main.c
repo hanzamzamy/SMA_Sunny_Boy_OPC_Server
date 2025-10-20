@@ -310,8 +310,9 @@ int main(int argc, char *argv[]) {
   UA_Server_run_shutdown(opcua_server);
   UA_Server_delete(opcua_server);
   free_config(config);
-  logger_close();
 
   log_message(LOG_LEVEL_INFO, "Application terminated cleanly.");
+  logger_close();
+  
   return EXIT_SUCCESS;
 }
