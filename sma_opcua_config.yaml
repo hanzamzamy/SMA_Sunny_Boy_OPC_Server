@@ -1,10 +1,10 @@
 # Configuration for the Modbus to OPC UA Gateway
 
 modbus:
-  ip: "127.0.0.1"
-  port: 1502
-  # ip: "10.3.145.15"
-  # port: 502
+  # ip: "127.0.0.1"
+  # port: 1502
+  ip: "10.3.145.15"
+  port: 502
   slave_id: 3
   timeout_sec: 5
 
@@ -47,6 +47,7 @@ mappings:
       8064: "Sensor technology general"
       8065: "Energy meter"
       8128: "Communication products"
+      16777213: "N/A"
 
   - name: "Serial Number"
     modbus_address: 30057
@@ -74,6 +75,7 @@ mappings:
       303: "Off"
       307: "OK"
       455: "Warning"
+      16777213: "N/A"
 
   - name: "Detailed Operating Status"
     modbus_address: 40029
@@ -90,6 +92,7 @@ mappings:
       1469: "Shut down"
       1480: "Wait for utility grid"
       2119: "Derating"
+      16777213: "N/A"
 
   - name: "Current Event Number"
     modbus_address: 30197
@@ -107,6 +110,7 @@ mappings:
     enum_values:
       51: "Closed"
       311: "Open"
+      16777213: "N/A"
 
   # --- Key Performance Metrics (AC Power & Energy) ---
   - name: "AC Active Power (Total)"
@@ -271,6 +275,7 @@ mappings:
       884: "Not active"
       1704: "WMAX derating"
       1705: "Frequency derating"
+      16777213: "N/A"
 
   - name: "Operating Time"
     modbus_address: 30521
