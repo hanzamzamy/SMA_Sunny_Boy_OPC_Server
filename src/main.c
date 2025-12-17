@@ -117,7 +117,7 @@ bool process_modbus_value_formatted(const uint16_t *regs, const modbus_reg_mappi
     }
     
     char fw_string[32];
-    snprintf(fw_string, sizeof(fw_string), "%x.%x.%d.%c", major, minor, build, release_char);
+    snprintf(fw_string, sizeof(fw_string), "%d.%d.%d.%c", major, minor, build, release_char);
     
     UA_String *string_val = UA_String_new();
     *string_val = UA_STRING_ALLOC(fw_string);

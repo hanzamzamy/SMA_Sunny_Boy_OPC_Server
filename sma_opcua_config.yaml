@@ -69,7 +69,7 @@ mappings:
     opcua_node_id: "sma.status.device_status"
     data_type: "U32"
     format: "ENUM"
-    poll_interval_ms: 5000
+    poll_interval_ms: 1000
     enum_values:
       35: "Error"
       303: "Off"
@@ -82,7 +82,7 @@ mappings:
     opcua_node_id: "sma.status.operating_status"
     data_type: "U32"
     format: "ENUM"
-    poll_interval_ms: 5000
+    poll_interval_ms: 1000
     enum_values:
       295: "MPP"
       381: "Stop"
@@ -99,27 +99,20 @@ mappings:
     opcua_node_id: "sma.status.event_number"
     data_type: "U32"
     format: "FIX0"
-    poll_interval_ms: 5000
+    poll_interval_ms: 1000
 
   - name: "Grid Contactor Status"
     modbus_address: 30217
     opcua_node_id: "sma.status.grid_contactor"
     data_type: "U32"
     format: "ENUM"
-    poll_interval_ms: 5000
+    poll_interval_ms: 1000
     enum_values:
       51: "Closed"
       311: "Open"
       16777213: "N/A"
 
   # --- Key Performance Metrics (AC Power & Energy) ---
-  - name: "AC Active Power (Total)"
-    modbus_address: 30775
-    opcua_node_id: "sma.ac.power_total"
-    data_type: "S32"
-    format: "FIX0" # Unit: W
-    poll_interval_ms: 2000
-
   - name: "Daily Energy Yield"
     modbus_address: 30517
     opcua_node_id: "sma.yield.daily"
@@ -134,83 +127,178 @@ mappings:
     format: "FIX0" # Unit: Wh
     poll_interval_ms: 60000
 
-  # --- Detailed AC Grid Measurements ---
-  - name: "AC Active Power L1"
-    modbus_address: 30777
-    opcua_node_id: "sma.ac.power_l1"
+  - name: "AC Active Power (Total)"
+    modbus_address: 30775
+    opcua_node_id: "sma.ac.power.total.active"
     data_type: "S32"
     format: "FIX0" # Unit: W
-    poll_interval_ms: 5000
-
-  - name: "AC Active Power L2"
-    modbus_address: 30779
-    opcua_node_id: "sma.ac.power_l2"
-    data_type: "S32"
-    format: "FIX0" # Unit: W
-    poll_interval_ms: 5000
-
-  - name: "AC Active Power L3"
-    modbus_address: 30781
-    opcua_node_id: "sma.ac.power_l3"
-    data_type: "S32"
-    format: "FIX0" # Unit: W
-    poll_interval_ms: 5000
+    poll_interval_ms: 2000
 
   - name: "AC Reactive Power (Total)"
     modbus_address: 30805
-    opcua_node_id: "sma.ac.reactive_power_total"
+    opcua_node_id: "sma.ac.power.total.reactive"
     data_type: "S32"
     format: "FIX0" # Unit: VAr
-    poll_interval_ms: 5000
+    poll_interval_ms: 2000
 
   - name: "AC Apparent Power (Total)"
     modbus_address: 30813
-    opcua_node_id: "sma.ac.apparent_power_total"
+    opcua_node_id: "sma.ac.power.total.apparent"
     data_type: "S32"
     format: "FIX0" # Unit: VA
-    poll_interval_ms: 5000
+    poll_interval_ms: 2000
+
+  - name: "Grid Frequency"
+    modbus_address: 30803
+    opcua_node_id: "sma.ac.frequency"
+    data_type: "U32"
+    format: "FIX2" # Unit: Hz
+    poll_interval_ms: 2000
 
   - name: "Displacement Power Factor"
     modbus_address: 30949
     opcua_node_id: "sma.ac.power_factor"
     data_type: "U32"
     format: "FIX3"
-    poll_interval_ms: 10000
+    poll_interval_ms: 2000
+
+  - name: "Excitation Type"
+    modbus_address: 30823
+    opcua_node_id: "sma.status.excitation_type"
+    data_type: "U32"
+    format: "ENUM"
+    poll_interval_ms: 2000
+    enum_values:
+      1041: "Leading"
+      1042: "Lagging"
+      16777213: "N/A"
+
+  # --- Detailed AC Grid Measurements ---
+  - name: "AC Active Power L1"
+    modbus_address: 30777
+    opcua_node_id: "sma.ac.power.l1.active"
+    data_type: "S32"
+    format: "FIX0" # Unit: W
+    poll_interval_ms: 5000
+
+  - name: "AC Active Power L2"
+    modbus_address: 30779
+    opcua_node_id: "sma.ac.power.l2.active"
+    data_type: "S32"
+    format: "FIX0" # Unit: W
+    poll_interval_ms: 5000
+
+  - name: "AC Active Power L3"
+    modbus_address: 30781
+    opcua_node_id: "sma.ac.power.l3.active"
+    data_type: "S32"
+    format: "FIX0" # Unit: W
+    poll_interval_ms: 5000
+
+  - name: "AC Reactive Power L1"
+    modbus_address: 30807
+    opcua_node_id: "sma.ac.power.l1.reactive"
+    data_type: "S32"
+    format: "FIX0" # Unit: VAr
+    poll_interval_ms: 5000
+
+  - name: "AC Reactive Power L2"
+    modbus_address: 30809
+    opcua_node_id: "sma.ac.power.l2.reactive"
+    data_type: "S32"
+    format: "FIX0" # Unit: VAr
+    poll_interval_ms: 5000
+
+  - name: "AC Reactive Power L3"
+    modbus_address: 30811
+    opcua_node_id: "sma.ac.power.l3.reactive"
+    data_type: "S32"
+    format: "FIX0" # Unit: VAr
+    poll_interval_ms: 5000
+
+  - name: "AC Apparent Power L1"
+    modbus_address: 30815
+    opcua_node_id: "sma.ac.power.l1.apparent"
+    data_type: "S32"
+    format: "FIX0" # Unit: VA
+    poll_interval_ms: 5000
+
+  - name: "AC Apparent Power L2"
+    modbus_address: 30817
+    opcua_node_id: "sma.ac.power.l2.apparent"
+    data_type: "S32"
+    format: "FIX0" # Unit: VA
+    poll_interval_ms: 5000
+
+  - name: "AC Apparent Power L3"
+    modbus_address: 30819
+    opcua_node_id: "sma.ac.power.l3.apparent"
+    data_type: "S32"
+    format: "FIX0" # Unit: VA
+    poll_interval_ms: 5000
 
   - name: "AC Voltage L1-N"
     modbus_address: 30783
-    opcua_node_id: "sma.ac.voltage_l1"
+    opcua_node_id: "sma.ac.voltage.l1n"
     data_type: "U32"
     format: "FIX2" # Unit: V
     poll_interval_ms: 10000
 
   - name: "AC Voltage L2-N"
     modbus_address: 30785
-    opcua_node_id: "sma.ac.voltage_l2"
+    opcua_node_id: "sma.ac.voltage.l2n"
     data_type: "U32"
     format: "FIX2" # Unit: V
-    poll_interval_ms: 10000
+    poll_interval_ms: 5000
 
   - name: "AC Voltage L3-N"
     modbus_address: 30787
-    opcua_node_id: "sma.ac.voltage_l3"
+    opcua_node_id: "sma.ac.voltage.l3n"
     data_type: "U32"
     format: "FIX2" # Unit: V
-    poll_interval_ms: 10000
+    poll_interval_ms: 5000
+
+  - name: "AC Voltage L1-L2"
+    modbus_address: 30789
+    opcua_node_id: "sma.ac.voltage.l1l2"
+    data_type: "U32"
+    format: "FIX2" # Unit: V
+    poll_interval_ms: 5000
+
+  - name: "AC Voltage L2-L3"
+    modbus_address: 30791
+    opcua_node_id: "sma.ac.voltage.l2l3"
+    data_type: "U32"
+    format: "FIX2" # Unit: V
+    poll_interval_ms: 5000
+
+  - name: "AC Voltage L3-L1"
+    modbus_address: 30793
+    opcua_node_id: "sma.ac.voltage.l3l1"
+    data_type: "U32"
+    format: "FIX2" # Unit: V
+    poll_interval_ms: 5000
 
   - name: "AC Current L1"
     modbus_address: 30797
-    opcua_node_id: "sma.ac.current_l1"
+    opcua_node_id: "sma.ac.current.l1"
     data_type: "U32"
     format: "FIX3" # Unit: A
     poll_interval_ms: 5000
 
-  - name: "Grid Frequency"
-    modbus_address: 30803
-    opcua_node_id: "sma.ac.grid_frequency"
+  - name: "AC Current L2"
+    modbus_address: 30799
+    opcua_node_id: "sma.ac.current.l2"
     data_type: "U32"
-    format: "FIX2" # Unit: Hz
-    poll_interval_ms: 10000
+    format: "FIX3" # Unit: A
+    poll_interval_ms: 5000
+
+  - name: "AC Current L3"
+    modbus_address: 30801
+    opcua_node_id: "sma.ac.current.l3"
+    data_type: "U32"
+    format: "FIX3" # Unit: A
+    poll_interval_ms: 5000
 
   # --- Detailed DC Input Measurements ---
   - name: "DC Voltage Input 1"
@@ -261,7 +349,7 @@ mappings:
     opcua_node_id: "sma.health.internal_temp"
     data_type: "S32"
     format: "TEMP" # Unit: °C
-    poll_interval_ms: 30000
+    poll_interval_ms: 10000
 
   - name: "Derating Status"
     modbus_address: 30219
@@ -282,14 +370,14 @@ mappings:
     opcua_node_id: "sma.health.operating_time"
     data_type: "U64"
     format: "Duration" # Unit: s
-    poll_interval_ms: 60000
+    poll_interval_ms: 1000
 
   - name: "Feed-in Time"
     modbus_address: 30525
     opcua_node_id: "sma.health.feed_in_time"
     data_type: "U64"
     format: "Duration" # Unit: s
-    poll_interval_ms: 60000
+    poll_interval_ms: 1000
 
   - name: "Number of Grid Connections"
     modbus_address: 30599
