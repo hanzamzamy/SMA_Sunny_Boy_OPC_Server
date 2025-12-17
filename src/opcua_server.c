@@ -103,7 +103,7 @@ void add_opcua_nodes(UA_Server *server, const modbus_opcua_config_t *config) {
         if (result == UA_STATUSCODE_GOOD) {
           log_message(LOG_LEVEL_INFO, "Created enum DataType for '%s' with %d values", mapping->name, mapping->num_enum_values);
           
-          // Create EnumValues property for the DataType (this is crucial for SCADA recognition)
+          // Create EnumValues property for the DataType
           char enum_values_id[300];
           snprintf(enum_values_id, sizeof(enum_values_id), "EnumValues.%s", mapping->opcua_node_id);
           UA_NodeId enum_values_node_id = UA_NODEID_STRING(1, enum_values_id);
@@ -143,7 +143,7 @@ void add_opcua_nodes(UA_Server *server, const modbus_opcua_config_t *config) {
           if (enum_prop_result == UA_STATUSCODE_GOOD) {
             log_message(LOG_LEVEL_INFO, "Added EnumValues property to DataType '%s'", enum_type_name);
             
-            // Now create the variable using Int32 type (this is the standard approach)
+            // Create the variable using Int32 type
             // The enum information is stored in the DataType definition
             attr.dataType = UA_TYPES[UA_TYPES_INT32].typeId;
             
@@ -278,7 +278,7 @@ void add_opcua_nodes(UA_Server *server, const modbus_opcua_config_t *config) {
 UA_StatusCode update_opcua_node_value_typed(UA_Server *server, const modbus_reg_mapping_t *mapping, UA_Variant *value) {
   UA_NodeId node_id = UA_NODEID_STRING(1, (char *) mapping->opcua_node_id);
 
-  /* write and log result */
+  // Write and log result
   UA_DataValue dv;
   UA_DataValue_init(&dv);
   dv.hasValue = true;
@@ -296,7 +296,7 @@ UA_StatusCode update_opcua_node_value_typed(UA_Server *server, const modbus_reg_
     return rc;
   }
 
-  /* read back to verify */
+  // Read back to verify
   UA_Variant read_back;
   UA_Variant_init(&read_back);
   rc = UA_Server_readValue(server, node_id, &read_back);

@@ -2,13 +2,13 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <cstring>  // For strdup
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
 
-#include "logger.h"  // For logging errors during parsing
+#include "logger.h"
 
 // Helper to safely get a string value from a YAML node
 static char* get_string(const YAML::Node& node) {
@@ -66,14 +66,14 @@ extern "C" modbus_opcua_config_t* load_config_from_yaml(const char* filename) {
 
         // Parse enum_values if present
         if (mapping_node["enum_values"]) {
-          const auto& enum_node = mapping_node["enum_values"];
+          const auto& enum_node               = mapping_node["enum_values"];
           config->mappings[i].num_enum_values = enum_node.size();
-          config->mappings[i].enum_values = (enum_value_mapping_t*) calloc(config->mappings[i].num_enum_values, sizeof(enum_value_mapping_t));
-          
+          config->mappings[i].enum_values     = (enum_value_mapping_t*) calloc(config->mappings[i].num_enum_values, sizeof(enum_value_mapping_t));
+
           int j = 0;
           for (auto it = enum_node.begin(); it != enum_node.end(); ++it, ++j) {
             config->mappings[i].enum_values[j].value = it->first.as<int>();
-            config->mappings[i].enum_values[j].name = strdup(it->second.as<std::string>().c_str());
+            config->mappings[i].enum_values[j].name  = strdup(it->second.as<std::string>().c_str());
           }
         }
       }
@@ -103,7 +103,7 @@ extern "C" void free_config(modbus_opcua_config_t* config) {
       free(config->mappings[i].opcua_node_id);
       free(config->mappings[i].data_type);
       free(config->mappings[i].format);
-      
+
       if (config->mappings[i].enum_values) {
         for (int j = 0; j < config->mappings[i].num_enum_values; j++) {
           free(config->mappings[i].enum_values[j].name);

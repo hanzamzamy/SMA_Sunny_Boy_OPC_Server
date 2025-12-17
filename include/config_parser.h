@@ -1,7 +1,7 @@
 #ifndef CONFIG_PARSER_H
 #define CONFIG_PARSER_H
 
-#include "config.h"  // The C struct definition
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {

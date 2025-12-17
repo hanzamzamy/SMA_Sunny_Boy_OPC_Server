@@ -1,14 +1,14 @@
-#include <math.h>  // For NAN
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>  // For gettimeofday
+#include <sys/time.h>
 #include <unistd.h>
-#include <ctype.h>     // For isdigit
+#include <ctype.h>
 
 #include "config.h"
-#include "config_parser.h"  // Use the new parser header
+#include "config_parser.h"
 #include "logger.h"
 #include "modbus_client.h"
 #include "opcua_server.h"
@@ -41,7 +41,7 @@ static int64_t get_time_ms() {
 bool process_modbus_value_formatted(const uint16_t *regs, const modbus_reg_mapping_t *mapping, UA_Variant *out_variant) {
   UA_Variant_init(out_variant);
   
-  // First, combine registers according to data type and check for NaN
+  // Combine registers according to data type and check for NaN
   uint64_t raw_value = 0;
   bool is_nan = false;
   
@@ -137,7 +137,7 @@ bool process_modbus_value_formatted(const uint16_t *regs, const modbus_reg_mappi
     UA_Variant_setScalar(out_variant, float_val, &UA_TYPES[UA_TYPES_FLOAT]);
     
   } else if (strcmp(mapping->format, "TEMP") == 0) {
-    // Temperature format (like FIX1)
+    // Temperature format (tenths of degrees to degrees)
     float *float_val = UA_Float_new();
     if (strcmp(mapping->data_type, "S32") == 0) {
       *float_val = (float)((int32_t)raw_value) * 0.1f;
@@ -195,8 +195,7 @@ int main(int argc, char *argv[]) {
   if (!next_poll_times) {
     log_message(LOG_LEVEL_ERROR, "Failed to allocate memory for poll timers.");
 
-    // Perform graceful shutdown/cleanup since we can't continue.
-    // At this point modbus_ctx is NULL, but handle defensively.
+    // Perform graceful shutdown/cleanup.
     if (modbus_ctx) {
       modbus_close(modbus_ctx);
       modbus_free(modbus_ctx);
@@ -292,7 +291,7 @@ int main(int argc, char *argv[]) {
     usleep(100 * 1000);
   }
 
-  /* Log the fact that shutdown was requested (safe context) */
+  // Log the fact that shutdown was requested
   int sig = opcua_shutdown_signal();
   if (sig != 0) {
     log_message(LOG_LEVEL_INFO, "Received signal %d, shutting down.", sig);
