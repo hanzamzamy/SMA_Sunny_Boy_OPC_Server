@@ -75,7 +75,7 @@ make -j$(nproc)
 sudo make install
 ```
 
-#### 2. Build yaml-cpp
+#### 2. Build `yaml-cpp`
 ```bash
 git clone https://github.com/jbeder/yaml-cpp.git
 cd yaml-cpp && mkdir build && cd build
@@ -84,7 +84,7 @@ make -j$(nproc)
 sudo make install
 ```
 
-#### 3. Build libmodbus
+#### 3. Build `libmodbus`
 ```bash
 git clone https://github.com/stephane/libmodbus.git
 cd libmodbus
