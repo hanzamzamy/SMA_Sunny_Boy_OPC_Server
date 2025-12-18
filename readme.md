@@ -144,7 +144,7 @@ While optimized for SMA, this gateway can be hacked to work with any Modbus devi
 
 This Gateway is a **Modbus Client**. It needs a server to talk to.
 
-1. **With Simulator**: You can use this with [SMA Sunny Boy Digital Twin Simulator](https://github.com/hanzamzamy/SMA_Sunny_Boy_Simulator). Start the simulator and this gateway pointing to the simulator's IP.
+1. **With Simulator**: You can use this with sister project [SMA Sunny Boy Digital Twin Simulator](https://github.com/hanzamzamy/SMA_Sunny_Boy_Simulator). Start the simulator and this gateway pointing to the simulator's IP.
 2. **With Real Hardware**: If you have a physical SMA Inverter, find its IP address in your network. Configure the Gateway to use that IP and the standard Modbus port `502`.
 3. **Connect OPC UA Client**: Use OPC UA client (e.g., [UaExpert](https://www.unified-automation.com/downloads/opc-ua-clients/)) to verify your data. Your SCADA software can now connect to the Gateway at `opc.tcp://[IP]:4840` to see all solar data.
 
