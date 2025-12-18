@@ -1,16 +1,16 @@
 # Configuration for the Modbus to OPC UA Gateway
 
 modbus:
-  # ip: "127.0.0.1"
-  # port: 1502
-  ip: "10.3.145.15"
-  port: 502
+  ip: "127.0.0.1"
+  port: 1502
+  # ip: "10.3.145.15"
+  # port: 502
   slave_id: 3
   timeout_sec: 5
 
 opcua:
   port: 4840
-
+ 
 security:
   username: "admin"
   password: "your_secure_password"

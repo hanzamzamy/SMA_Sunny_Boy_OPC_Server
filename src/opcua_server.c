@@ -3,10 +3,15 @@
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
+#include <pthread.h>
 #include "logger.h"
 
 static volatile sig_atomic_t shutdown_requested  = 0;
 static volatile sig_atomic_t shutdown_signal_num = 0;
+
+static HistoryData *historyNodes = NULL;
+static size_t historyNodeCount = 0;
+static pthread_mutex_t historyMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void stop_handler(int sig) {
   shutdown_signal_num = sig;
@@ -327,4 +332,145 @@ UA_StatusCode update_opcua_node_value(UA_Server *server, const modbus_reg_mappin
   UA_Variant_init(&ua_value);
   UA_Variant_setScalar(&ua_value, &value, &UA_TYPES[UA_TYPES_FLOAT]);
   return UA_Server_writeValue(server, node_id, ua_value);
+}
+
+HistoryData* findHistoryData(const UA_NodeId *nodeId) {
+    pthread_mutex_lock(&historyMutex);
+    for(size_t i = 0; i < historyNodeCount; i++) {
+        if(UA_NodeId_equal(&historyNodes[i].nodeId, nodeId)) {
+            pthread_mutex_unlock(&historyMutex);
+            return &historyNodes[i];
+        }
+    }
+    pthread_mutex_unlock(&historyMutex);
+    return NULL;
+}
+
+UA_StatusCode
+readHistoryData(UA_Server *server, const UA_NodeId *sessionId,
+                void *sessionContext, const UA_NodeId *nodeId,
+                UA_Boolean sourceTimeStamp,
+                const UA_NumericRange *range,
+                UA_TimestampsToReturn timestampsToReturn,
+                const UA_ReadRawModifiedDetails *details,
+                UA_HistoryData *result) {
+    
+    HistoryData *hd = findHistoryData(nodeId);
+    if(!hd)
+        return UA_STATUSCODE_BADNODEIDUNKNOWN;
+
+    pthread_mutex_lock(&hd->mutex);
+    
+    // Filter data based on time range
+    size_t count = 0;
+    for(size_t i = 0; i < hd->currentSize; i++) {
+        UA_DateTime ts = hd->values[i].sourceTimestamp;
+        if(ts >= details->startTime && ts <= details->endTime) {
+            count++;
+        }
+    }
+
+    if(count == 0) {
+        pthread_mutex_unlock(&hd->mutex);
+        return UA_STATUSCODE_GOOD;
+    }
+
+    result->dataValuesSize = count;
+    result->dataValues = (UA_DataValue*)UA_Array_new(count, &UA_TYPES[UA_TYPES_DATAVALUE]);
+    
+    size_t idx = 0;
+    for(size_t i = 0; i < hd->currentSize && idx < count; i++) {
+        UA_DateTime ts = hd->values[i].sourceTimestamp;
+        if(ts >= details->startTime && ts <= details->endTime) {
+            UA_DataValue_copy(&hd->values[i], &result->dataValues[idx]);
+            idx++;
+        }
+    }
+
+    pthread_mutex_unlock(&hd->mutex);
+    return UA_STATUSCODE_GOOD;
+}
+
+UA_StatusCode opcua_add_history_node(UA_Server *server, UA_NodeId nodeId, 
+                                      size_t maxHistoryEntries) {
+    pthread_mutex_lock(&historyMutex);
+    
+    /* Allocate or expand history nodes array */
+    HistoryData *temp = realloc(historyNodes, (historyNodeCount + 1) * sizeof(HistoryData));
+    if(!temp) {
+        pthread_mutex_unlock(&historyMutex);
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+    historyNodes = temp;
+    
+    HistoryData *hd = &historyNodes[historyNodeCount];
+    UA_NodeId_copy(&nodeId, &hd->nodeId);
+    hd->values = (UA_DataValue*)UA_Array_new(maxHistoryEntries, &UA_TYPES[UA_TYPES_DATAVALUE]);
+    hd->maxSize = maxHistoryEntries;
+    hd->currentSize = 0;
+    hd->currentIndex = 0;
+    pthread_mutex_init(&hd->mutex, NULL);
+    
+    historyNodeCount++;
+    pthread_mutex_unlock(&historyMutex);
+    
+    /* Enable historizing on the node */
+    UA_HistorizingNodeIdSettings setting;
+    setting.historizingBackend = UA_HistoryDataBackend_Memory(maxHistoryEntries, 100);
+    setting.maxHistoryDataResponseSize = 100;
+    setting.historizingUpdateStrategy = UA_HISTORIZINGUPDATESTRATEGY_VALUESET;
+    
+    UA_Server_setHistorizingSetting(server, nodeId, setting);
+    
+    return UA_STATUSCODE_GOOD;
+}
+
+UA_StatusCode opcua_update_history(UA_Server *server, UA_NodeId nodeId, 
+                                    UA_Variant *value) {
+    HistoryData *hd = findHistoryData(&nodeId);
+    if(!hd)
+        return UA_STATUSCODE_BADNODEIDUNKNOWN;
+    
+    pthread_mutex_lock(&hd->mutex);
+    
+    // Create new data value with timestamp
+    UA_DataValue dv;
+    UA_DataValue_init(&dv);
+    UA_Variant_copy(value, &dv.value);
+    dv.hasValue = true;
+    dv.sourceTimestamp = UA_DateTime_now();
+    dv.hasSourceTimestamp = true;
+    dv.hasServerTimestamp = true;
+    dv.serverTimestamp = UA_DateTime_now();
+    
+    // Store in circular buffer
+    size_t idx = hd->currentIndex;
+    if(hd->currentSize < hd->maxSize) {
+        hd->currentSize++;
+    } else {
+        UA_DataValue_clear(&hd->values[idx]);
+    }
+    
+    hd->values[idx] = dv;
+    hd->currentIndex = (hd->currentIndex + 1) % hd->maxSize;
+    
+    pthread_mutex_unlock(&hd->mutex);
+    
+    return UA_STATUSCODE_GOOD;
+}
+
+void opcua_cleanup_history(void) {
+    pthread_mutex_lock(&historyMutex);
+    for(size_t i = 0; i < historyNodeCount; i++) {
+        pthread_mutex_lock(&historyNodes[i].mutex);
+        UA_NodeId_clear(&historyNodes[i].nodeId);
+        UA_Array_delete(historyNodes[i].values, historyNodes[i].currentSize, 
+                       &UA_TYPES[UA_TYPES_DATAVALUE]);
+        pthread_mutex_unlock(&historyNodes[i].mutex);
+        pthread_mutex_destroy(&historyNodes[i].mutex);
+    }
+    free(historyNodes);
+    historyNodes = NULL;
+    historyNodeCount = 0;
+    pthread_mutex_unlock(&historyMutex);
 }
